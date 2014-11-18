@@ -12,19 +12,19 @@
 #include <string.h>
 #include <stdio.h>
 
-#define PORT 		8888
+#define PORT 		8866
 #define	BUFSIZE		4096
 
 int errexit(const char *format, ...);
 int udpSocket();
 void sendUdp(int sock, char* message);
-// void getMesg(int sock);
+void getMesg(int sock);
 
 
-int main(int argc, char const *argv[]) {
-	
+int main() {	
 	int sock = udpSocket();
-
+	printf("listening on port %d\n", PORT);
+	getMesg(sock);
 }
 
 /*

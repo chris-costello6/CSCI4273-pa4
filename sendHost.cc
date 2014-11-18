@@ -12,18 +12,33 @@
 #include <string.h>
 #include <stdio.h>
 
-#define PORT 		8888
 #define	BUFSIZE		4096
+#define	LINELEN		128
+#define USAGE	"Usage: ./sendHost <host> <port>\n"
 
 int errexit(const char *format, ...);
 int udpSocket();
-void sendUdp(int sock, char* message);
+void sendUdp(int sock, char* message, const char* host, const char* port);
 void getMesg(int sock);
 
 
-int main() {
+int main(int argc, char const *argv[]) {
+	if (argc < 3)
+	{
+		fprintf(stderr, USAGE);
+		exit(1);
+	}
+	const char *host = argv[1];
+	const char *port = argv[2];
+	
 	int sock = udpSocket();
+	char message[LINELEN];
+	while(fgets(message, sizeof(message), stdin)) {
+		sendUdp(sock, message, host, port);
+		memset(message, 0, sizeof(message));	
+	}
 
+	close(sock);
 }
 
 /*
@@ -48,13 +63,13 @@ int udpSocket() {
 	return sock;
  }
 
-void sendUdp(int sock, char* message) {
+void sendUdp(int sock, char* message, const char* host, const char* port) {
 
 	struct sockaddr_in destAddr;
 	memset((char *)&destAddr, 0, sizeof(destAddr));
  	destAddr.sin_family = AF_INET;
- 	destAddr.sin_port = htons((unsigned short) PORT);
- 	destAddr.sin_addr.s_addr = inet_addr("localhost");
+ 	destAddr.sin_port = htons((unsigned short)atoi(port));
+ 	destAddr.sin_addr.s_addr = inet_addr(host);
 
 	if(sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
 		fprintf(stderr, "Failed to send UDP message: %s\n", strerror(errno));
