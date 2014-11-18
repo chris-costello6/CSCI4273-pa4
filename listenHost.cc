@@ -41,7 +41,7 @@ int udpSocket() {
 	memset((char *)&myAddr, 0, sizeof(myAddr));
 	myAddr.sin_family = AF_INET;
 	myAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	myAddr.sin_port = htons(0);
+	myAddr.sin_port = htons(PORT);
 
 	if(bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) < 0) {
 		errexit("Could not bind: %s", strerror(errno));
