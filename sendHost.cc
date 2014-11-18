@@ -30,7 +30,7 @@ int main(int argc, char const *argv[]) {
 	}
 	const char *host = argv[1];
 	const char *port = argv[2];
-	
+
 	int sock = udpSocket();
 	char message[LINELEN];
 	while(fgets(message, sizeof(message), stdin)) {
@@ -64,12 +64,17 @@ int udpSocket() {
  }
 
 void sendUdp(int sock, char* message, const char* host, const char* port) {
-
+	struct hostent *hp;
+	hp = gethostbyname(host);
+	if (!hp) { 
+		fprintf(stderr, "could not obtain address of %s\n", host); 
+		return; 
+	}
 	struct sockaddr_in destAddr;
 	memset((char *)&destAddr, 0, sizeof(destAddr));
  	destAddr.sin_family = AF_INET;
  	destAddr.sin_port = htons((unsigned short)atoi(port));
- 	destAddr.sin_addr.s_addr = inet_addr(host);
+ 	memcpy((void *)&destAddr.sin_addr, hp->h_addr_list[0], hp->h_length);
 
 	if(sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
 		fprintf(stderr, "Failed to send UDP message: %s\n", strerror(errno));
@@ -78,6 +83,7 @@ void sendUdp(int sock, char* message, const char* host, const char* port) {
 
 void getMesg(int sock) {
 	char incomingMesg[BUFSIZE];
+	memset(incomingMesg, 0, sizeof(incomingMesg));
 	struct sockaddr_in theirAddr;
 	socklen_t len;
 	recvfrom(sock , incomingMesg, BUFSIZE, 0, (struct sockaddr *)&theirAddr, &len);
