@@ -18,9 +18,11 @@
 int errexit(const char *format, ...);
 int udpSocket();
 void sendUdp(int sock, char* message);
+// void getMesg(int sock);
 
 
-int main() {
+int main(int argc, char const *argv[]) {
+	
 	int sock = udpSocket();
 
 }
