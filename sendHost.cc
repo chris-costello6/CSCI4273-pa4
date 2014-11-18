@@ -19,7 +19,6 @@
 int errexit(const char *format, ...);
 int udpSocket();
 void sendUdp(int sock, char* message, const char* host, const char* port);
-void getMesg(int sock);
 
 
 int main(int argc, char const *argv[]) {
@@ -80,16 +79,6 @@ void sendUdp(int sock, char* message, const char* host, const char* port) {
 		fprintf(stderr, "Failed to send UDP message: %s\n", strerror(errno));
 	}
 }
-
-void getMesg(int sock) {
-	char incomingMesg[BUFSIZE];
-	memset(incomingMesg, 0, sizeof(incomingMesg));
-	struct sockaddr_in theirAddr;
-	socklen_t len;
-	recvfrom(sock , incomingMesg, BUFSIZE, 0, (struct sockaddr *)&theirAddr, &len);
-	printf("%s\n", incomingMesg);
-}
-
 
 /*------------------------------------------------------------------------
  * errexit - print an error message and exit

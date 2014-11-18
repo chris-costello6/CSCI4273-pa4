@@ -17,7 +17,6 @@
 
 int errexit(const char *format, ...);
 int udpSocket();
-void sendUdp(int sock, char* message);
 void getMesg(int sock);
 
 
@@ -49,19 +48,9 @@ int udpSocket() {
 	return sock;
  }
 
-void sendUdp(int sock, char* message) {
-
-	struct sockaddr_in destAddr;
-	memset((char *)&destAddr, 0, sizeof(destAddr));
- 	destAddr.sin_family = AF_INET;
- 	destAddr.sin_port = htons((unsigned short) PORT);
- 	destAddr.sin_addr.s_addr = inet_addr("localhost");
-
-	if(sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
-		fprintf(stderr, "Failed to send UDP message: %s\n", strerror(errno));
-	}
-}
-
+/*
+	Receive incoming udp messages on specified socket.
+*/
 void getMesg(int sock) {
 	char incomingMesg[BUFSIZE];
 	struct sockaddr_in theirAddr;
