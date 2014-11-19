@@ -1,13 +1,13 @@
 CC = g++
 CCFLAGS = -std=gnu++11 -pthread -g
 
-all: threadPoolMake messageMake
+all: listenHostMake sendHostMake
 
-threadPoolMake: ThreadPool.h
-	$(CC) $(CCFLAGS) -o ThreadPool ThreadPool.h
+listenHostMake: listenHost.cc
+	$(CC) $(CCFLAGS) -o listenhost listenHost.cc
 
-messageMake: Message.h
-	$(CC) $(CCFLAGS) -o Message Message.h 
+sendHostMake: sendHost.cc
+	$(CC) $(CCFLAGS) -o sendhost sendHost.cc 
 
 clean: 
-	rm -f ThreadPool Message
+	rm -rf sendhost listenhost *.dSYM
