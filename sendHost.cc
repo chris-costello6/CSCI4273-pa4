@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "Threadpool.h"
+#include "Message.h"
 
 #define	BUFSIZE		4096
 #define	LINELEN		128
@@ -56,7 +58,7 @@ int udpSocket() {
 	myAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	myAddr.sin_port = htons(0);
 
-	if(bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) < 0) {
+	if(::bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) != 0) {
 		errexit("Could not bind: %s", strerror(errno));
 	}
 	return sock;
