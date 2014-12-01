@@ -15,37 +15,16 @@
 #include "Message.h"
 
 #define	BUFSIZE		4096
-#define	LINELEN		128
-#define USAGE	"Usage: ./sendHost <host> <port>\n"
 
 int errexit(const char *format, ...);
-int udpSocket();
+int udpSocket(int port);
+char* getMesg(int sock);
 void sendUdp(int sock, char* message, const char* host, const char* port);
 
-
-int main(int argc, char const *argv[]) {
-	if (argc < 3)
-	{
-		fprintf(stderr, USAGE);
-		exit(1);
-	}
-	const char *host = argv[1];
-	const char *port = argv[2];
-
-	int sock = udpSocket();
-	char message[LINELEN];
-	while(fgets(message, sizeof(message), stdin)) {
-		sendUdp(sock, message, host, port);
-		memset(message, 0, sizeof(message));	
-	}
-
-	close(sock);
-}
-
 /*
- * udpSocket - create and bind a udp socket
+	udpSocket - create and bind a udp socket
  */
-int udpSocket() {
+int udpSocket(int port) {
  	struct sockaddr_in myAddr;
 
 	int sock = socket(AF_INET,SOCK_DGRAM,0);
@@ -56,14 +35,27 @@ int udpSocket() {
 	memset((char *)&myAddr, 0, sizeof(myAddr));
 	myAddr.sin_family = AF_INET;
 	myAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	myAddr.sin_port = htons(0);
+	myAddr.sin_port = htons(port);
 
-	if(::bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) != 0) {
+	if(::bind(sock, (struct sockaddr *)&myAddr, sizeof(myAddr)) != 0 ) {
 		errexit("Could not bind: %s", strerror(errno));
 	}
 	return sock;
  }
 
+/*
+	Receive incoming udp messages on specified socket.
+*/
+char* getMesg(int sock) {
+	char incomingMesg[BUFSIZE];
+	struct sockaddr_in theirAddr;
+	socklen_t len;
+	recvfrom(sock , incomingMesg, BUFSIZE, 0, (struct sockaddr *)&theirAddr, &len);
+	return incomingMesg;
+}
+/*
+	Send outgoing udp messages to specified host on specified socket and port.
+*/
 void sendUdp(int sock, char* message, const char* host, const char* port) {
 	struct hostent *hp;
 	hp = gethostbyname(host);
