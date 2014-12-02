@@ -9,6 +9,8 @@
 #include "Message.h"
 #include "ThreadPool.h"
 #include "Headers.h"
+#include "udpUtils.h"
+
 
 using namespace std;
 
@@ -25,8 +27,8 @@ public:
 
 
 private:
-	ThreadPool tp(25);
-	int inUDPSock;
-	int outUDPSock;
+	ThreadPool threads(25);
+	int inUdpPort;
+	int destUdpPort;
 	void* listenOnSocket(void* arg);
 };
