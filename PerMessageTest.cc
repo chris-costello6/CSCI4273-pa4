@@ -27,8 +27,8 @@ int main(int argc, char const *argv[])
 		sleep (2);
 		char *h1 = new char[5];
     	for (int i = 0; i < 5; i++) h1[i] = 'h';
-		Message m(h1, 5);
-		p2.ethernetSend(IP_ID, &m);
+		Message* m = new Message (h1, 5);
+		p2.ethernetSend(IP_ID, m);
 	} else {
 		fprintf(stderr, "%s\n", USAGE);
 		exit(1);

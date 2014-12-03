@@ -61,6 +61,7 @@ PerMessage::ethernetSend(int protocol, Message* mesg)
 	// Attach a header and send it over the network
 	ethHeader eth;
 	eth.hlp = protocol;
+	for(int i = 0; i< sizeof(eth.otherInfo); i++) eth.otherInfo[i] = 'f';
 	eth.length = mesg->msgLen();
 	
 	// cout << "ethHeader: hlp=" << eth.hlp << " other=" << eth.otherInfo
@@ -70,43 +71,46 @@ PerMessage::ethernetSend(int protocol, Message* mesg)
 	// mesg->msgFlat(content);
 	// cout << "content is " << content << " before sending" << endl;
 	
-
 	mesg->msgAddHdr((char*)&eth, sizeof(ethHeader));
 	
 
-	cout << "size of mesg after=" << mesg->msgLen() << endl;
+	cout << "size of mesg after adding header=" << mesg->msgLen() << endl;
+
 	// ethHeader* after = (ethHeader*) mesg->msgStripHdr(sizeof(ethHeader));
 	// cout << "Stripped header: hlp=" << after->hlp << " otherinfo=" << after->otherInfo
 	// << " length="<< after->length << endl;
+
 	// bzero(content, 30);
 	// mesg->msgFlat(content);
-	// cout << "Content= " << content << endl;
+	// cout << "Content =" << content << endl;
 
 	// Send message over network
 	const char* destHost = "localhost";
-	char buffer[1024];
+	char* buffer = new char[mesg->msgLen()];
 	mesg->msgFlat(buffer);
+	for(int i = 0; i < mesg->msgLen(); i++) printf("%c\n", buffer[i]);
 	cout << "attempting to send " << buffer<< " to " << destHost << " port " << destUdpPort << endl;
 	// int sendSock = udpSocket(inUdpPort);
-	// sendUdp(mySock, buffer, destHost, destUdpPort);
+	sendUdp(mySock, buffer, mesg->msgLen(), destHost, destUdpPort);
 }
 
 void
 PerMessage::ethernetRecv(void* arg)
 {
 	cout << "ethernetRecv: Got mesg" << endl;
-	char* mm = (char*) arg;
-	Message mesg(mm, strlen(mm));
-	cout << "size of mm=" << sizeof(mm) << " content=" << mm
-		 << endl;
 
-	// cout << "size before msgStripHdr=" << mesg.msgLen() << endl;
+	Message* mesg = (Message *) arg;
+	char* content = new char[30];
+	mesg->msgFlat(content);
+	for(int i = 0; i < 30; i++) printf("%c\n", content[i]);
+	// cout << "content=" << content <<" size before msgStripHdr=" << mesg->msgLen() << endl;
 
-	ethHeader* header = (ethHeader*) mesg.msgStripHdr(sizeof(ethHeader));
-
-	cout << "size after msgStripHdr=" << mesg.msgLen() << endl;
+	ethHeader* header = (ethHeader*) mesg->msgStripHdr(sizeof(ethHeader));
+	cout << "size after msgStripHdr=" << mesg->msgLen() << endl;
 	cout << "hlp=" << header->hlp << " otherinfo=" << header->otherInfo
-	<< " length="<< header->length << endl;
+	<< " length="<< header->length  << endl;
+
+	//Send to IP
 }
 void
 PerMessage::listenOnSocket(void* arg)
@@ -114,10 +118,13 @@ PerMessage::listenOnSocket(void* arg)
 	cout << "listen on socket got called" << endl;	
 	PerMessage* pm = (PerMessage*) arg;
 	cout << "Listening on port " << pm->inUdpPort << endl;
-	while(true) {	
-		char* raw = getUdpMesg(pm->mySock);
-		cout << "got message " << raw << " size=" << strlen(raw)<< endl;
-		pm->threads->dispatch_thread(PerMessage::ethernetRecv, (void*)raw);
+	char* buffer = new char[BUFSIZE];
+	while(true) {
+		memset(buffer, 0, BUFSIZE);	
+		int n = getUdpMesg(pm->mySock, buffer, BUFSIZE);
+		Message* m = new Message(buffer, n); //Only read in num bytes read
+		// cout << "got message " << raw << " size=" << strlen(raw)<< endl;
+		pm->threads->dispatch_thread(PerMessage::ethernetRecv, (void*)m);
 	}
 }
 
