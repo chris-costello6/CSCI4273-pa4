@@ -17,7 +17,7 @@
 int errexit(const char *format, ...);
 int udpSocket(int port);
 char* getUdpMesg(int sock);
-void sendUdp(int sock, char* message, const char* host, const char* port);
+void sendUdp(int sock, char* message, const char* host, int port);
 
 /*
 	udpSocket - create and bind a udp socket
@@ -56,7 +56,7 @@ char* getUdpMesg(int sock) {
 	do {
 		c = incomingMesg[i];
 		i++;
-	} while (c != NULL);
+	} while (c != '\0');
 
 	char* retVal = (char *) malloc(i * sizeof(char));
 	memcpy(retVal, incomingMesg, i);
@@ -65,7 +65,7 @@ char* getUdpMesg(int sock) {
 /*
 	Send outgoing udp messages to specified host on specified socket and port.
 */
-void sendUdp(int sock, char* message, const char* host, const char* port) {
+void sendUdp(int sock, char* message, const char* host, int port) {
 	struct hostent *hp;
 	hp = gethostbyname(host);
 	if (!hp) { 
@@ -75,7 +75,7 @@ void sendUdp(int sock, char* message, const char* host, const char* port) {
 	struct sockaddr_in destAddr;
 	memset((char *)&destAddr, 0, sizeof(destAddr));
  	destAddr.sin_family = AF_INET;
- 	destAddr.sin_port = htons((unsigned short)atoi(port));
+ 	destAddr.sin_port = htons((unsigned short)port);
  	memcpy((void *)&destAddr.sin_addr, hp->h_addr_list[0], hp->h_length);
 
 	if(sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0) {
