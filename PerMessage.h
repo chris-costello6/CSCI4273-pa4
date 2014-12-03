@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include "newLibs/message.cpp"
+#include "ourLibs/Message.h"
 #include "newLibs/threadpool.cpp"
 #include "Headers.h"
 #include "udpUtils.h"
@@ -104,8 +104,9 @@ PerMessage::ethernetRecv(void* arg)
 	// char* xx= (char*) arg;
 	// cout << "content =" << xx << endl;
 	Message* mesg = (Message*) arg;
-	char* content = new char[30];
-	mesg->msgFlat(content);
+	// printf("%x\n", mesg);
+	// char* content = new char[30];
+	// mesg->msgFlat(content);
 	// for(int i = 0; i < 30; i++) printf("%c\n", content[i]);
 	// cout << "content=" << content <<" size before msgStripHdr=" << mesg->msgLen() << endl;
 
@@ -119,6 +120,8 @@ PerMessage::ethernetRecv(void* arg)
 void
 PerMessage::listenOnSocket(void* arg)
 {
+	struct sockaddr_in theirAddr;
+	socklen_t len;
 	cout << "listen on socket got called" << endl;	
 	PerMessage* pm = (PerMessage*) arg;
 	cout << "Listening on port " << pm->inUdpPort << endl;
@@ -127,11 +130,14 @@ PerMessage::listenOnSocket(void* arg)
 	// char* xx = new char[15];
 	while(true) {
 		memset(buffer, 0, BUFSIZE);	
-		int n = getUdpMesg(pm->mySock, buffer, BUFSIZE);
+		// int n = getUdpMesg(pm->mySock, buffer, BUFSIZE);
+		int n = recvfrom(pm->mySock, buffer, BUFSIZE, 0, 
+		    		(struct sockaddr *)&theirAddr, &len);
 		Message* m = new Message(buffer, n); //Only read in num bytes read
-		m->msgFlat(mm);
-		cout << "n=" << n << " mesgLen=" << m->msgLen() << endl;
-		for(int i = 0; i < 30; i++) printf("%c\n", mm[i]);
+		//printf("%x\n", m);
+		// m->msgFlat(mm);
+		// cout << "n=" << n << " mesgLen=" << m->msgLen() << endl;
+		// for(int i = 0; i < 30; i++) printf("%c\n", mm[i]);
 		// cout << "passing in new char* instead of message." << endl;
 		// for (int i = 0; i < 15; ++i) xx[i] = 'x';
 		pm->threads->dispatch_thread(PerMessage::ethernetRecv, (void*) m);

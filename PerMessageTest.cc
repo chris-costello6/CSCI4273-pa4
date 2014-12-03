@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include "PerMessage.h"
-#define USAGE "./PerMessageTest <send|listen>"
+#define USAGE "./PerMessageTest <send|listen|ethTest>"
 #define SEND "send"
 #define LISTEN "listen"
+#define ETHTEST "ethTest"
 #define port1 44444
 #define port2 45555
 
@@ -29,7 +30,40 @@ int main(int argc, char const *argv[])
     	for (int i = 0; i < 5; i++) h1[i] = 'h';
 		Message* m = new Message (h1, 5);
 		p2.ethernetSend(IP_ID, m);
-	} else {
+	} else if(strcmp(argv[1], ETHTEST) == 0) {
+		char* t = new char[10];
+		for (int i = 0; i < 10; i++) t[i] = 'v';
+		
+		Message* mm = new Message(t, 10);
+		
+		ethHeader* e = new ethHeader;
+		e->hlp = 5;
+		for (int i = 0; i < 8; ++i) e->otherInfo[i] = 'q';
+		e->length = mm->msgLen();
+		cout << "===BEFORE===" << endl;
+		cout << "hlp=" << e->hlp << " otherInfo=" << e->otherInfo
+		<< " length=" << e->length << endl;
+
+		mm->msgAddHdr((char*) e, sizeof(ethHeader));
+		
+		// char content[30];
+		// mm->msgFlat(content);
+		// cout << "content is " << content << " before sending" << endl;
+
+		// ethHeader* stripped = (ethHeader*) mm->msgStripHdr(sizeof(ethHeader));
+
+		// bzero(content, 30);
+		// mm->msgFlat(content);
+		// cout << "After strip, Content =" << content << endl;
+		
+		// cout << "===AFTER===" << endl;
+		// cout << "hlp=" << stripped->hlp << " otherInfo=" << stripped->otherInfo
+		// << " length=" << stripped->length << endl;
+
+		PerMessage* p3 = new PerMessage();
+		p3->ethernetRecv((void*)mm);
+		
+	} else{
 		fprintf(stderr, "%s\n", USAGE);
 		exit(1);
 	}
