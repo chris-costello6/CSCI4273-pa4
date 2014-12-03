@@ -21,6 +21,7 @@ int main(int argc, char const *argv[])
 		exit(1);
 	}
 	if (strcmp(argv[1], LISTEN) == 0) {
+		cout << "in listen" << endl;
 		PerMessage p1(port1, port2);
 		pause();
 	} else if (strcmp(argv[1], SEND) == 0) {
@@ -46,23 +47,23 @@ int main(int argc, char const *argv[])
 
 		mm->msgAddHdr((char*) e, sizeof(ethHeader));
 		
-		// char content[30];
-		// mm->msgFlat(content);
-		// cout << "content is " << content << " before sending" << endl;
+		char content[30];
+		mm->msgFlat(content);
+		cout << "content is " << content << " before sending" << endl;
 
-		// ethHeader* stripped = (ethHeader*) mm->msgStripHdr(sizeof(ethHeader));
+		ethHeader* stripped = (ethHeader*) mm->msgStripHdr(sizeof(ethHeader));
 
-		// bzero(content, 30);
-		// mm->msgFlat(content);
-		// cout << "After strip, Content =" << content << endl;
+		bzero(content, 30);
+		mm->msgFlat(content);
+		cout << "After strip, Content =" << content << endl;
 		
-		// cout << "===AFTER===" << endl;
-		// cout << "hlp=" << stripped->hlp << " otherInfo=" << stripped->otherInfo
-		// << " length=" << stripped->length << endl;
+		cout << "===AFTER===" << endl;
+		cout << "hlp=" << stripped->hlp << " otherInfo=" << stripped->otherInfo
+		<< " length=" << stripped->length << endl;
 
-		PerMessage* p3 = new PerMessage();
-		p3->ethernetRecv((void*)mm);
-		
+		// PerMessage* p3 = new PerMessage();
+		// p3->ethernetRecv((void*)mm);
+
 	} else{
 		fprintf(stderr, "%s\n", USAGE);
 		exit(1);

@@ -35,7 +35,7 @@ private:
 	int inUdpPort;
 	int destUdpPort;
 	int mySock;
-	static void listenOnSocket(void* arg);
+	static void* listenOnSocket(void* arg);
 
 };
 
@@ -52,7 +52,9 @@ PerMessage::PerMessage(int sourcePort, int destPort)
 	destUdpPort = destPort;
 	mySock = udpSocket(inUdpPort);
 	cout << "inPort =" << inUdpPort << " destPort=" << destUdpPort << endl;
-	threads->dispatch_thread(listenOnSocket, this);
+	
+	pthread_t t;
+	int fail = pthread_create(&t, NULL, listenOnSocket, (void*)this);
 }
 
 void
@@ -91,8 +93,8 @@ PerMessage::ethernetSend(int protocol, Message* mesg)
 	mesg->msgFlat(buffer);
 	// for(int i = 0; i < mesg->msgLen(); i++) buffer[i] = 't';
 		// printf("%c\n", buffer[i]);
-	cout << "attempting to send " << buffer<< " to " << destHost
-	 << " port " << destUdpPort << endl;
+	// cout << "attempting to send " << buffer<< " to " << destHost
+	//  << " port " << destUdpPort << endl;
 	// int sendSock = udpSocket(inUdpPort);
 	sendUdp(mySock, buffer, mesg->msgLen(), destHost, destUdpPort);
 }
@@ -102,12 +104,15 @@ PerMessage::ethernetRecv(void* arg)
 {
 	// cout << "ethernetRecv: Got mesg" << endl;
 	// char* xx= (char*) arg;
+	// for(int i = 0; i < 30; i++) printf("%c", xx[i]);
 	// cout << "content =" << xx << endl;
 	Message* mesg = (Message*) arg;
 	// printf("%x\n", mesg);
-	// char* content = new char[30];
-	// mesg->msgFlat(content);
-	// for(int i = 0; i < 30; i++) printf("%c\n", content[i]);
+	char* content = new char[30];
+	mesg->msgFlat(content);
+	cout << "ethernetRecv Message content" << endl;
+	for(int i = 0; i < 30; i++) printf("%c", content[i]);
+	cout << endl;
 	// cout << "content=" << content <<" size before msgStripHdr=" << mesg->msgLen() << endl;
 
 	ethHeader* header = (ethHeader*) mesg->msgStripHdr(sizeof(ethHeader));
@@ -117,7 +122,7 @@ PerMessage::ethernetRecv(void* arg)
 
 	//Send to IP
 }
-void
+void*
 PerMessage::listenOnSocket(void* arg)
 {
 	struct sockaddr_in theirAddr;
@@ -126,7 +131,6 @@ PerMessage::listenOnSocket(void* arg)
 	PerMessage* pm = (PerMessage*) arg;
 	cout << "Listening on port " << pm->inUdpPort << endl;
 	char* buffer = new char[BUFSIZE];
-	char* mm = new char[200];
 	// char* xx = new char[15];
 	while(true) {
 		memset(buffer, 0, BUFSIZE);	
@@ -135,9 +139,12 @@ PerMessage::listenOnSocket(void* arg)
 		    		(struct sockaddr *)&theirAddr, &len);
 		Message* m = new Message(buffer, n); //Only read in num bytes read
 		//printf("%x\n", m);
-		// m->msgFlat(mm);
+		char mm[n];// = new char[n];
+		m->msgFlat(mm);
 		// cout << "n=" << n << " mesgLen=" << m->msgLen() << endl;
-		// for(int i = 0; i < 30; i++) printf("%c\n", mm[i]);
+		cout << "Before dispatch_thread" << endl;
+		for(int i = 0; i < 30; i++) printf("%c", mm[i]);
+		cout << endl;
 		// cout << "passing in new char* instead of message." << endl;
 		// for (int i = 0; i < 15; ++i) xx[i] = 'x';
 		pm->threads->dispatch_thread(PerMessage::ethernetRecv, (void*) m);
