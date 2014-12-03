@@ -53,11 +53,12 @@ char* getUdpMesg(int sock) {
 	// Trim to minimum size.
 	int i = 0;
 	char c;
-	while(c != NULL) {
+	do {
 		c = incomingMesg[i];
 		i++;
-	}
-	char retVal[i];
+	} while (c != NULL);
+
+	char* retVal = (char *) malloc(i * sizeof(char));
 	memcpy(retVal, incomingMesg, i);
 	return retVal;
 }

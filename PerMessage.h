@@ -8,7 +8,7 @@
 #include <pthread.h>
 
 #include "Message.h"
-#include "ThreadPool.h"
+#include "threadPool.h"
 #include "Headers.h"
 #include "udpUtils.h"
 
@@ -32,7 +32,8 @@ private:
 	ThreadPool *threads;
 	int inUdpPort;
 	int destUdpPort;
-	void* listenOnSocket(void* arg);
+	static void listenOnSocket(void* arg);
+
 };
 
 PerMessage::PerMessage() 
@@ -46,8 +47,7 @@ PerMessage::PerMessage(int sourcePort, int destPort)
 	threads = new ThreadPool(25);
 	inUdpPort = sourcePort;
 	destUdpPort = destPort;
-	pthread_t* t;
-	int fail = pthread_create(&t, NULL, PerMessage::listenOnSocket, (void*) this);
+	threads->dispatch_thread(listenOnSocket, this);
 }
 
 void
@@ -59,21 +59,30 @@ PerMessage::ethernetSend(int protocol, Message* mesg)
 void
 PerMessage::ethernetRecv(void* arg)
 {
-	cout << "Got mesg " << arg << endl;
-	(Message*) mesg = (Message*) arg;
-	(ethHeader*) header = (ethHeader*) mesg->msgStripHder(sizeof(ethHeader));
-}
+	// cout << "ethernetRecv: Got mesg " << arg << endl;
+	char* mm = (char*) arg;
+	Message mesg(mm, strlen(mm));
+	cout << "size of mm=" << sizeof(mm) << " content=" << mm
+		<< " size of ethHeader=" << sizeof(ethHeader) << endl;
 
-void*
+	cout << "size before msgStripHdr=" << mesg.msgLen() << endl;
+
+	ethHeader* header = (ethHeader*) mesg.msgStripHdr(sizeof(ethHeader));
+	cout << "size after msgStripHdr=" << mesg.msgLen() << endl;
+	// cout << "hlp=" << header->hlp << " otherinfo=" << header->otherInfo
+	// << " length="<< header->length << endl;
+}
+void
 PerMessage::listenOnSocket(void* arg)
 {
+	cout << "listen on socket got called" << endl;	
 	PerMessage* pm = (PerMessage*) arg;
 	int listeningSock = udpSocket(pm->inUdpPort);
 	cout << "Listening on port " << pm->inUdpPort << endl;
-	while(true) {
+	while(true) {	
 		char* raw = getUdpMesg(listeningSock);
-		Message mesg = Message(raw, sizeof(raw));
-		pm->threads->dispatchThread(PerMessage::ethernetRecv, (void*)rawMesg);
+		// cout << "got message " << raw << " size=" << strlen(raw)<< endl;
+		pm->threads->dispatch_thread(PerMessage::ethernetRecv, (void*)raw);
 	}
 }
 
