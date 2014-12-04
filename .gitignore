@@ -3,3 +3,7 @@ Message
 PerProtocol
 listenHost
 sendHost
+SpeedTest
+PerMessageTest
+ppp_test
+PerProtocol_test.o
