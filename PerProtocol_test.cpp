@@ -26,7 +26,5 @@ int main()
     host_a.msg_send(msg3, 6);
     host_b.msg_send(msg4, 5);
 
-    while(1){
-        continue;
-    }
+    usleep(3000);
 }
