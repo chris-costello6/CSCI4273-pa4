@@ -26,13 +26,23 @@ public:
 	
 	void ethernetSend(int protocol, Message* mesg);
 	static void ethernetRecv(void* arg);
+	
 	void ipSend(int protocol, Message* mesg);
 	static void ipRecv(Message* mesg);
+	
 	void tcpSend(int protocol, Message* mesg);
 	static void tcpRecv(Message* mesg);
 	void udpSend(int protocol, Message* mesg);
 	static void udpRecv(Message* mesg);
-
+	
+	void dnsSend(int protocol, Message* mesg);
+	static void dnsRecv(Message* mesg);
+	void rdpSend(int protocol, Message* mesg);
+	static void rdpRecv(Message* mesg);
+	void ftpSend(int protocol, Message* mesg);
+	static void ftpRecv(Message* mesg);
+	void telnetSend(int protocol, Message* mesg);
+	static void telnetRecv(Message* mesg);
 
 private:
 	ThreadPool *threads;
@@ -167,20 +177,20 @@ void
 PerMessage::tcpRecv(Message* mesg)
 {
 	TCPHeader* tcp = (TCPHeader*) mesg->msgStripHdr(sizeof(TCPHeader));
-	char* buff = new char[40];
-	mesg->msgFlat(buff);
-	cout << "TCP LAYER: content=" << buff << " hlp=" << tcp->hlp << endl;
-	// switch(tcp->hlp)
-	// {
-	// 	case FTP_ID:
-	// 		//ftprecv
-	// 		break;
-	// 	case TELNET_ID:
-	// 		//telnetRecv
-	// 		break;
-	// 	default:
-	// 		fprintf(stderr, "Invalid protocol %d\n", tcp->hlp);
-	// }
+	// char* buff = new char[40];
+	// mesg->msgFlat(buff);
+	// cout << "TCP LAYER: content=" << buff << " hlp=" << tcp->hlp << endl;
+	switch(tcp->hlp)
+	{
+		case FTP_ID:
+			ftpRecv(mesg);
+			break;
+		case TELNET_ID:
+			telnetRecv(mesg);
+			break;
+		default:
+			fprintf(stderr, "Invalid protocol %d\n", tcp->hlp);
+	}
 }
 
 void
@@ -198,19 +208,102 @@ void
 PerMessage::udpRecv(Message* mesg) 
 {
 	UDPHeader* udp = (UDPHeader*) mesg->msgStripHdr(sizeof(UDPHeader));
-	char* buff = new char[30];
-	mesg->msgFlat(buff);
-	cout << "UDP LAYER: content=" << buff << " hlp=" << udp->hlp << endl;
-	// switch(udp->hlp)
-	// {
-	// 	case DNS_ID:
-	// 		//dnsRecv
-	// 		break;
-	// 	case RDP_ID:
-	// 		//rdpRecv
-	// 		break;
-	// 	default
-	// 		fprintf(stderr, "Invalid protocol %d\n", udp->hlp);
-	// }
+	// char* buff = new char[30];
+	// mesg->msgFlat(buff);
+	// cout << "UDP LAYER: content=" << buff << " hlp=" << udp->hlp << endl;
+	switch(udp->hlp)
+	{
+		case DNS_ID:
+			dnsRecv(mesg);
+			break;
+		case RDP_ID:
+			rdpRecv(mesg);
+			break;
+		default:
+			fprintf(stderr, "Invalid protocol %d\n", udp->hlp);
+	}
 }
 
+void
+PerMessage::rdpSend(int protocol, Message* mesg)
+{
+	RDPHeader rdp;
+	rdp.hlp = protocol;
+	rdp.length = mesg->msgLen();
+
+	mesg->msgAddHdr((char*)&rdp, sizeof(rdp));
+	udpSend(RDP_ID, mesg);
+}
+
+void
+PerMessage::dnsSend(int protocol, Message* mesg)
+{
+	DNSHeader dns;
+	dns.hlp = protocol;
+	dns.length = mesg->msgLen();
+
+	mesg->msgAddHdr((char*)&dns, sizeof(dns));
+	udpSend(DNS_ID, mesg);
+}
+
+void
+PerMessage::ftpSend(int protocol, Message* mesg)
+{
+	FTPHeader ftp;
+	ftp.hlp = protocol;
+	ftp.length = mesg->msgLen();
+
+	mesg->msgAddHdr((char*)&ftp, sizeof(ftp));
+	tcpSend(FTP_ID, mesg);
+}
+
+void
+PerMessage::telnetSend(int protocol, Message* mesg)
+{
+	telnetHeader telnet;
+	telnet.hlp = protocol;
+	telnet.length = mesg->msgLen();
+
+	mesg->msgAddHdr((char*)&telnet, sizeof(telnet));
+	tcpSend(TELNET_ID, mesg);
+}
+
+void
+PerMessage::rdpRecv(Message* mesg)
+{
+	RDPHeader* rdp = (RDPHeader*) mesg->msgStripHdr(sizeof(RDPHeader));
+	char* buff = new char[1024];
+	mesg->msgFlat(buff);
+	cout << "RDP MESSAGE: " << buff << endl;
+	delete buff;
+}
+
+void
+PerMessage::dnsRecv(Message* mesg)
+{
+	DNSHeader* dns = (DNSHeader*) mesg->msgStripHdr(sizeof(DNSHeader));
+	char* buff = new char[1024];
+	mesg->msgFlat(buff);
+	cout << "DNS MESSAGE: " << buff << endl;
+	delete buff;
+}
+
+void
+PerMessage::ftpRecv(Message* mesg)
+{
+	FTPHeader* ftp = (FTPHeader*) mesg->msgStripHdr(sizeof(FTPHeader));
+	char* buff = new char[1024];
+	mesg->msgFlat(buff);
+	cout << "FTP MESSAGE: " << buff << endl;
+	delete buff;
+}
+
+void
+PerMessage::telnetRecv(Message* mesg) 
+{
+	telnetHeader* telnet = (telnetHeader*) mesg->msgStripHdr(sizeof(telnetHeader));
+	char* buff = new char[1024];
+	mesg->msgFlat(buff);
+	cout << "TELNET MESSAGE: " << buff << endl;
+	delete buff;
+}
