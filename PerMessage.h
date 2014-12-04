@@ -151,7 +151,6 @@ PerMessage::ipRecv(Message* mesg)
 	switch(nextProto)
 	{
 		case TCP_ID:
-			cout << "IP Layer Sending to TCP" << endl;
 			tcpRecv(mesg);
 			break;
 		case UDP_ID:
