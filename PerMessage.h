@@ -65,7 +65,7 @@ PerMessage::PerMessage(int sourcePort, int destPort)
 	inUdpPort = sourcePort;
 	destUdpPort = destPort;
 	mySock = udpSocket(inUdpPort);
-	cout << "inPort =" << inUdpPort << " destPort=" << destUdpPort << endl;
+	cout << "My Port: " << inUdpPort << " Dest Port: " << destUdpPort << endl;
 	
 	pthread_t t;
 	int fail = pthread_create(&t, NULL, listenOnSocket, (void*)this);
@@ -74,7 +74,6 @@ PerMessage::PerMessage(int sourcePort, int destPort)
 void*
 PerMessage::listenOnSocket(void* arg)
 {
-	// cout << "listen on socket got called" << endl;	
 	PerMessage* pm = (PerMessage*) arg;
 	cout << "Listening on port " << pm->inUdpPort << endl;
 	while(true) {
@@ -89,17 +88,12 @@ PerMessage::listenOnSocket(void* arg)
 void
 PerMessage::ethernetSend(int protocol, Message* mesg)
 {
-	// Attach a header
+	// Build and Attach a header
 	ethHeader eth;
 	eth.hlp = protocol;
 	for(int i = 0; i< sizeof(eth.otherInfo); i++) eth.otherInfo[i] = 'f';
 	eth.length = mesg->msgLen();
-	
-	// cout << "size of mesg before=" << mesg->msgLen() << endl;
-
 	mesg->msgAddHdr((char*)&eth, sizeof(ethHeader));
-	
-	// cout << "size of mesg after adding header=" << mesg->msgLen() << endl;
 
 	// Send message over network
 	const char* destHost = "localhost";
@@ -111,42 +105,29 @@ PerMessage::ethernetSend(int protocol, Message* mesg)
 void
 PerMessage::ethernetRecv(void* arg)
 {
-
 	Message* mesg = (Message*) arg;
-	// char* content = new char[30];
-	// mesg->msgFlat(content);
-	// cout << "ethernetRecv Message content" << endl;
-	// cout << "content=" << content <<" size before msgStripHdr=" << mesg->msgLen() << endl;
-
 	ethHeader* header = (ethHeader*) mesg->msgStripHdr(sizeof(ethHeader));
-	// cout << "size after msgStripHdr=" << mesg->msgLen() << endl;
-	// cout << "hlp=" << header->hlp << " otherinfo=" << header->otherInfo
-	// << " length="<< header->length  << endl;
 	if(header->hlp != IP_ID) {
-		fprintf(stderr, "Invalid protocol %d\n", header->hlp);
-		exit(1);
+		fprintf(stderr, "Ethernet encountered Invalid protocol %d\n", header->hlp);
 	}
 	//Send to IP
 	ipRecv(mesg);
 }
+
 void
 PerMessage::ipSend(int protocol, Message* mesg)
 {
 	IPHeader ip;
 	ip.hlp = protocol;
 	ip.length = mesg->msgLen();
-
 	mesg->msgAddHdr((char*)&ip, sizeof(IPHeader));
-
 	ethernetSend(IP_ID, mesg);
 }
+
 void
 PerMessage::ipRecv(Message* mesg) 
 {
 	IPHeader* ip = (IPHeader*) mesg->msgStripHdr(sizeof(IPHeader));
-	// char* buff = new char[40];
-	// mesg->msgFlat(buff);
-	// cout << "IP LAYER: content=" << buff << " hlp=" << ip->hlp << endl;
 	int nextProto = ip->hlp;
 	switch(nextProto)
 	{
@@ -157,10 +138,11 @@ PerMessage::ipRecv(Message* mesg)
 			udpRecv(mesg);
 			break;
 		default:
-			fprintf(stderr, "Invalid protocol %d\n", nextProto);
+			fprintf(stderr, "IP Encountered Invalid protocol %d\n", nextProto);
 	}
 
 }
+
 void
 PerMessage::tcpSend(int protocol, Message* mesg)
 {
@@ -176,9 +158,6 @@ void
 PerMessage::tcpRecv(Message* mesg)
 {
 	TCPHeader* tcp = (TCPHeader*) mesg->msgStripHdr(sizeof(TCPHeader));
-	// char* buff = new char[40];
-	// mesg->msgFlat(buff);
-	// cout << "TCP LAYER: content=" << buff << " hlp=" << tcp->hlp << endl;
 	switch(tcp->hlp)
 	{
 		case FTP_ID:
@@ -188,7 +167,7 @@ PerMessage::tcpRecv(Message* mesg)
 			telnetRecv(mesg);
 			break;
 		default:
-			fprintf(stderr, "Invalid protocol %d\n", tcp->hlp);
+			fprintf(stderr, "TCP Encountered Invalid protocol %d\n", tcp->hlp);
 	}
 }
 
@@ -219,7 +198,7 @@ PerMessage::udpRecv(Message* mesg)
 			rdpRecv(mesg);
 			break;
 		default:
-			fprintf(stderr, "Invalid protocol %d\n", udp->hlp);
+			fprintf(stderr, "UDP Encountered Invalid protocol %d\n", udp->hlp);
 	}
 }
 
@@ -273,7 +252,7 @@ PerMessage::rdpRecv(Message* mesg)
 	RDPHeader* rdp = (RDPHeader*) mesg->msgStripHdr(sizeof(RDPHeader));
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
-	cout << "RDP MESSAGE: " << buff << endl;
+	// cout << "RDP MESSAGE: " << buff << endl;
 	delete buff;
 }
 
@@ -283,7 +262,7 @@ PerMessage::dnsRecv(Message* mesg)
 	DNSHeader* dns = (DNSHeader*) mesg->msgStripHdr(sizeof(DNSHeader));
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
-	cout << "DNS MESSAGE: " << buff << endl;
+	// cout << "DNS MESSAGE: " << buff << endl;
 	delete buff;
 }
 
@@ -293,7 +272,7 @@ PerMessage::ftpRecv(Message* mesg)
 	FTPHeader* ftp = (FTPHeader*) mesg->msgStripHdr(sizeof(FTPHeader));
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
-	cout << "FTP MESSAGE: " << buff << endl;
+	// cout << "FTP MESSAGE: " << buff << endl;
 	delete buff;
 }
 
@@ -303,6 +282,6 @@ PerMessage::telnetRecv(Message* mesg)
 	telnetHeader* telnet = (telnetHeader*) mesg->msgStripHdr(sizeof(telnetHeader));
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
-	cout << "TELNET MESSAGE: " << buff << endl;
+	// cout << "TELNET MESSAGE: " << buff << endl;
 	delete buff;
 }

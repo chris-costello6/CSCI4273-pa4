@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/time.h>
 #include "PerMessage.h"
 // #include "PerProtocol.h"
 #define USAGE "./SpeedTest"
@@ -21,10 +22,12 @@ char* text = new char[SIZE];
 int main() 
 {
 	for (int i = 0; i < SIZE; ++i) text[i] = 't';
+	
+	timeval start, end;
 	pthread_t t[4];
 	PerMessage* listen = new PerMessage(port1, port2);
 	PerMessage* send = new PerMessage(port2, port1);
-
+	gettimeofday(&start, NULL);
 	pthread_create(&t[0], NULL, ftp, (void*)send);
 	pthread_create(&t[1], NULL, telnet, (void*)send);
 	pthread_create(&t[2], NULL, dns, (void*)send);
@@ -35,8 +38,11 @@ int main()
 	pthread_join(t[1], NULL);
 	pthread_join(t[2], NULL);
 	pthread_join(t[3], NULL);
+	gettimeofday(&end, NULL);
 
-	return 0;
+	int micros = end.tv_usec - start.tv_usec;
+	cout << "Total Time: " << micros << " microseconds" << endl;
+ 	return 0;
 }
 
 void* ftp(void* arg)
