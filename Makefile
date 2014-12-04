@@ -1,10 +1,13 @@
 CC = g++
 CCFLAGS = -std=gnu++11 -pthread -g
 
-all: perMessageMake
+all: perMessageMake speedTestMake
 
 perMessageMake: PerMessageTest.cc
 	$(CC) $(CCFLAGS) -o PerMessageTest PerMessageTest.cc 
 
+speedTestMake: SpeedTest.cc
+	$(CC) $(CCFLAGS) -o SpeedTest SpeedTest.cc
+
 clean: 
-	rm -rf ThreadPool Message PerMessageTest *.dSYM
+	rm -rf SpeedTest PerMessageTest *.dSYM
