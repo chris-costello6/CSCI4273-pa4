@@ -1,8 +1,3 @@
-#include "./ourLibs/Message.h"
-#include "./newLibs/cj/threadpool.h"
-#include "Headers.h"
-#include "udpUtils.h"
-
 #include <mutex>
 #include <pthread.h>
 #include <stdio.h>
@@ -13,6 +8,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+
+/*#include "./ourLibs/Message.h"
+#include "./newLibs/cj/threadpool.h"
+#include "Headers.h"
+#include "udpUtils.h"*/
 
 using namespace std;
 
@@ -781,7 +781,7 @@ PerProtocol::FTP_recv(void* arg)
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
 
-        cout << "FTP Message Recevied: " << msg_buf;
+        //cout << "FTP Message Received: " << msg_buf;
 
         delete msg_buf;
     }
@@ -846,7 +846,7 @@ PerProtocol::tel_recv(void* arg)
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
 
-        cout << "Telnet Message Recevied: " << msg_buf;
+        //cout << "Telnet Message Received: " << msg_buf;
 
         delete msg_buf;
     }
@@ -911,7 +911,7 @@ PerProtocol::RDP_recv(void* arg)
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
 
-        cout << "RDP Message Recevied: " << msg_buf;
+        //cout << "RDP Message Received: " << msg_buf;
 
         delete msg_buf;
     }
@@ -976,7 +976,7 @@ PerProtocol::DNS_recv(void* arg)
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
 
-        cout << "DNS Message Recevied: " << msg_buf;
+        //cout << "DNS Message Received: " << msg_buf;
 
         delete msg_buf;
     }
