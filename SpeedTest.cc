@@ -55,20 +55,18 @@ int main()
 
 
 	// PerProtocol Tests ------------------------------------------------------
-	pthread_t perProtocolThreads[4];
-
 	PerProtocol* perProtocolListen = new PerProtocol(port3, port4);
 	PerProtocol* perProtocolSend = new PerProtocol(port4, port3);
 	
 	gettimeofday(&start, NULL);
 
-	pthread_create(&perProtocolThreads[0], NULL, perProtocolFTP, (void*)perProtocolSend);
-	pthread_create(&perProtocolThreads[1], NULL, perProtocolTelnet, (void*)perProtocolSend);
-	pthread_create(&perProtocolThreads[2], NULL, perProtocolDNS, (void*)perProtocolSend);
-	pthread_create(&perProtocolThreads[3], NULL, perProtocolRDP, (void*)perProtocolSend);
+	pthread_create(&t[0], NULL, perProtocolFTP, (void*)perProtocolSend);
+	pthread_create(&t[1], NULL, perProtocolTelnet, (void*)perProtocolSend);
+	pthread_create(&t[2], NULL, perProtocolDNS, (void*)perProtocolSend);
+	pthread_create(&t[3], NULL, perProtocolRDP, (void*)perProtocolSend);
 
 	for (int i = 0; i < 4; i++)
-		pthread_join(perProtocolThreads[i], NULL);
+		pthread_join(t[i], NULL);
 
 	gettimeofday(&end, NULL);
 
@@ -81,14 +79,12 @@ perMessageFTP(void* arg)
 {
 	PerMessage* pm = (PerMessage*) arg;
 	
-	cout << "attempting to send text" << endl;
 	for (int i = 0; i < SIZE; ++i)
 	{
 		Message* mesg = new Message(text, SIZE);
 		pm->ftpSend(FTP_ID, mesg);
 		usleep(SLEEP);
 	}	
-	return NULL;
 }
 
 void* 
@@ -101,7 +97,6 @@ perMessageTelnet(void* arg)
 		pm->telnetSend(TELNET_ID, mesg);
 		usleep(SLEEP);
 	}
-	return NULL;
 }
 
 void* 
@@ -114,7 +109,6 @@ perMessageDNS(void* arg)
 		pm->dnsSend(DNS_ID, mesg);
 		usleep(SLEEP);
 	}
-	return NULL;
 }
 
 void* 
@@ -127,7 +121,6 @@ perMessageRDP(void* arg)
 		pm->rdpSend(RDP_ID, mesg);
 		usleep(SLEEP);
 	}
-	return NULL;
 }
 
 
