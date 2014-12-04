@@ -1,7 +1,7 @@
 #include "./ourLibs/Message.h"
 #include "./newLibs/cj/threadpool.h"
 #include "Headers.h"
-#include "udpsocket.cpp"
+#include "udpUtils.h"
 
 #include <mutex>
 #include <pthread.h>
@@ -40,7 +40,7 @@ public:
     ~PerProtocol();
     
     void msg_send(Message* msg, int protocol_id);
-    void start_com(char in[], char[]);
+    void start_comm(char in[], char[]);
 
     // Allocate structs for application level pipes
     pipes ftp_send_pipe, tel_send_pipe, rdp_send_pipe, dns_send_pipe;
@@ -104,7 +104,7 @@ PerProtocol::PerProtocol(char in[], char out[])
 {
 
     // Start communications on sockets first
-    start_com(in, out);
+    start_comm(in, out);
 
 
     // Create pipes for protocols ---------------------------------------------
@@ -290,29 +290,18 @@ PerProtocol::~PerProtocol()
 
 }
 
-/*
- * Function to start UDP connections
- *
- * Char in[] takes char array of desired port for inbound communications
- *
- * Int out takes an integer respresentation of the socket on the other client
- */
+
 void 
-PerProtocol::start_com(char in[], char out[])
+PerProtocol::start_comm(char in[], char out[])
 {
-    recv_sock = updSocket(in);
+    recv_sock = udpSocket(atoi(in));
     m_send_port = out;
 }
 
-/*
- * Function to put in receive client mode
- * 
- * Parameter is socket number of the server
- */
 void* 
 PerProtocol::msg_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     struct sockaddr_in cliaddr;
     socklen_t len;
     int n;
@@ -323,20 +312,18 @@ PerProtocol::msg_recv(void* arg)
         memset(msg_buf, 0, 1024);
         len = sizeof(cliaddr);
 
-        // Read message from socket
-        n = recvfrom(ppp->recv_sock, msg_buf, 1024, 0, (struct sockaddr *)&cliaddr, &len);
+        n = recvfrom(perProto->recv_sock, msg_buf, 1024, 0, (struct sockaddr *)&cliaddr, &len);
         Message* msg = new Message(msg_buf, n);
 
-        // Build pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 0;
         send_pipe.msg = msg;
         
-        pthread_mutex_lock(ppp->eth_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->eth_recv_pipe.pipe_mutex);
 
-            write(ppp->eth_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->eth_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->eth_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->eth_recv_pipe.pipe_mutex);
     }
 }
 
@@ -402,27 +389,24 @@ PerProtocol::msg_send(Message* msg, int protocol_id)
 void* 
 PerProtocol::eth_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     struct sockaddr_in servaddr;
     socklen_t len;
-    struct hostent *phe;    // pointer to host information entry
+    struct hostent *phe;
 
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
 
     char* host = "localhost";
 
-    // Map port number (char string) to port number (int)
-    if ((servaddr.sin_port = htons((unsigned short)atoi(ppp->m_send_port))) == 0)
-        errexit("can't get \"%s\" port number\n", ppp->m_send_port);
+    if ((servaddr.sin_port = htons((unsigned short)atoi(perProto->m_send_port))) == 0)
+        errexit("can't get \"%s\" port number\n", perProto->m_send_port);
 
-    // Map host name to IP address, allowing for dotted decimal
     if ((phe = gethostbyname(host)))
         memcpy(&servaddr.sin_addr, phe->h_addr, phe->h_length);
     else if ((servaddr.sin_addr.s_addr = inet_addr(host)) == INADDR_NONE)
         errexit("can't get \"%s\" host entry\n", host);
 
-    // Allocate a socket
     int upd_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (upd_sock < 0)
         errexit("can't create socket: %s\n", strerror(errno));
@@ -432,29 +416,25 @@ PerProtocol::eth_send(void* arg)
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->eth_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->eth_send_pipe.pipe_mutex);
 
-            read(ppp->eth_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->eth_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->eth_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->eth_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         ethHeader* h = (ethHeader *) malloc( sizeof(ethHeader));
         h->hlp = read_pipe->protocol_id;
         h->length = msg->msgLen();
 
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(ethHeader));
 
-        // Flaten message to buffer
         char msg_buf[1024];
         memset(&msg_buf, 0, sizeof(msg_buf));
         msg->msgFlat(msg_buf);
 
-        // Sent message to network
         if (sendto(upd_sock, msg_buf, msg->msgLen(), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
             printf("Error with sendto %s\n", strerror(errno));
     }
@@ -463,36 +443,34 @@ PerProtocol::eth_send(void* arg)
 void* 
 PerProtocol::eth_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->eth_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->eth_recv_pipe.pipe_mutex);
 
-            read(ppp->eth_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->eth_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->eth_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->eth_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         ethHeader* stripped = (ethHeader*)msg->msgStripHdr(sizeof(ethHeader));
         int protocol_id = stripped->hlp;
 
-        // Create new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 1;
         send_pipe.msg = msg;
 
         if (protocol_id == 2)
         {
-            pthread_mutex_lock(ppp->ip_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->ip_recv_pipe.pipe_mutex);
 
-                write(ppp->ip_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->ip_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->ip_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->ip_recv_pipe.pipe_mutex);
         }
         else
             cout << "Error invalid protocol going up from eth" << endl;
@@ -502,83 +480,78 @@ PerProtocol::eth_recv(void* arg)
 void* 
 PerProtocol::IP_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
 
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->ip_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->ip_send_pipe.pipe_mutex);
 
-            read(ppp->ip_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->ip_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->ip_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->ip_send_pipe.pipe_mutex);
 
         msg = read_pipe->msg;
 
-        // Create new header
         IPHeader* h = (IPHeader *) malloc( sizeof(IPHeader));
         h->hlp = read_pipe->protocol_id;
         h->length = msg->msgLen();
         
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(IPHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 2;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->eth_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->eth_send_pipe.pipe_mutex);
 
-            write(ppp->eth_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->eth_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->eth_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->eth_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::IP_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->ip_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->ip_recv_pipe.pipe_mutex);
 
-            read(ppp->ip_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->ip_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->ip_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->ip_recv_pipe.pipe_mutex);
 
-        // Add header to message
         msg = read_pipe->msg;
         IPHeader* stripped = (IPHeader*)msg->msgStripHdr(sizeof(IPHeader));
         int protocol_id = stripped->hlp;
 
-        // Create new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 2;
         send_pipe.msg = msg;
 
         if (protocol_id == 3)
         {
-            pthread_mutex_lock(ppp->tcp_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->tcp_recv_pipe.pipe_mutex);
 
-                write(ppp->tcp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->tcp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->tcp_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->tcp_recv_pipe.pipe_mutex);
         }
         else if (protocol_id == 4)
         {
-            pthread_mutex_lock(ppp->udp_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->udp_recv_pipe.pipe_mutex);
 
-                write(ppp->udp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->udp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->udp_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->udp_recv_pipe.pipe_mutex);
         }
         else
             cout << "Error invalid protocol going up from ip" << endl;
@@ -588,84 +561,79 @@ PerProtocol::IP_recv(void* arg)
 void* 
 PerProtocol::TCP_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
 
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->tcp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->tcp_send_pipe.pipe_mutex);
 
-            read(ppp->tcp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->tcp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->tcp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->tcp_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         TCPHeader* h = (TCPHeader *) malloc( sizeof(TCPHeader));
         h->hlp = read_pipe->protocol_id;
         h->length = msg->msgLen();
         
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(TCPHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 3;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->ip_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->ip_send_pipe.pipe_mutex);
 
-            write(ppp->ip_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->ip_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->ip_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->ip_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::TCP_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->tcp_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->tcp_recv_pipe.pipe_mutex);
 
-            read(ppp->tcp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->tcp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->tcp_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->tcp_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         TCPHeader* stripped = (TCPHeader*)msg->msgStripHdr(sizeof(TCPHeader));
         int protocol_id = stripped->hlp;
 
-        // Create new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 3;
         send_pipe.msg = msg;
 
         if (protocol_id == 5)
         {
-            pthread_mutex_lock(ppp->ftp_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->ftp_recv_pipe.pipe_mutex);
 
-                write(ppp->ftp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->ftp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->ftp_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->ftp_recv_pipe.pipe_mutex);
         }
         else if (protocol_id == 6)
         {
-            pthread_mutex_lock(ppp->tel_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->tel_recv_pipe.pipe_mutex);
 
-                write(ppp->tel_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->tel_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->tel_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->tel_recv_pipe.pipe_mutex);
         }
         else
             cout << "Error invalid protocol going up from tcp" << endl;
@@ -675,84 +643,79 @@ PerProtocol::TCP_recv(void* arg)
 void* 
 PerProtocol::UDP_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->udp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->udp_send_pipe.pipe_mutex);
 
-            read(ppp->udp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->udp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->udp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->udp_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         UDPHeader* h = (UDPHeader *) malloc( sizeof(UDPHeader));
         h->hlp = read_pipe->protocol_id;
         h->length = msg->msgLen();
 
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(UDPHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 4;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->ip_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->ip_send_pipe.pipe_mutex);
 
-            write(ppp->ip_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->ip_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->ip_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->ip_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::UDP_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->udp_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->udp_recv_pipe.pipe_mutex);
 
-            read(ppp->udp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->udp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->udp_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->udp_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         UDPHeader* stripped = (UDPHeader*)msg->msgStripHdr(sizeof(UDPHeader));
         int protocol_id = stripped->hlp;
 
-        // Create new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 4;
         send_pipe.msg = msg;
 
         if (protocol_id == 7)
         {
-            pthread_mutex_lock(ppp->rdp_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->rdp_recv_pipe.pipe_mutex);
 
-                write(ppp->rdp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->rdp_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->rdp_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->rdp_recv_pipe.pipe_mutex);
         }
         else if (protocol_id == 8)
         {
-            pthread_mutex_lock(ppp->dns_recv_pipe.pipe_mutex);
+            pthread_mutex_lock(perProto->dns_recv_pipe.pipe_mutex);
 
-                write(ppp->dns_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+                write(perProto->dns_recv_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-            pthread_mutex_unlock(ppp->dns_recv_pipe.pipe_mutex);
+            pthread_mutex_unlock(perProto->dns_recv_pipe.pipe_mutex);
         }
         else
             cout << "Error invalid protocol going up from udp" << endl;
@@ -762,63 +725,58 @@ PerProtocol::UDP_recv(void* arg)
 void* 
 PerProtocol::FTP_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
 
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->ftp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->ftp_send_pipe.pipe_mutex);
 
-            read(ppp->ftp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->ftp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->ftp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->ftp_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         FTPHeader* h = (FTPHeader *) malloc( sizeof(FTPHeader));
         h->length = msg->msgLen();
         
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(FTPHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 5;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->tcp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->tcp_send_pipe.pipe_mutex);
 
-            write(ppp->tcp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->tcp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->tcp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->tcp_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::FTP_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->ftp_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->ftp_recv_pipe.pipe_mutex);
 
-            read(ppp->ftp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->ftp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->ftp_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->ftp_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         msg->msgStripHdr(sizeof(FTPHeader));
 
-        // Copy message to buffer and terminate line
         char* msg_buf = new char[1024];
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
@@ -832,63 +790,58 @@ PerProtocol::FTP_recv(void* arg)
 void* 
 PerProtocol::tel_send(void* arg)
 {
-        PerProtocol* ppp = (PerProtocol*) arg;
+        PerProtocol* perProto = (PerProtocol*) arg;
 
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->tel_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->tel_send_pipe.pipe_mutex);
 
-            read(ppp->tel_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->tel_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->tel_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->tel_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         telnetHeader* h = (telnetHeader*) malloc( sizeof(telnetHeader));
         h->length = msg->msgLen();
         
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(telnetHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 6;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->tcp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->tcp_send_pipe.pipe_mutex);
 
-            write(ppp->tcp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->tcp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->tcp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->tcp_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::tel_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->tel_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->tel_recv_pipe.pipe_mutex);
 
-            read(ppp->tel_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->tel_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->tel_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->tel_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         msg->msgStripHdr(sizeof(telnetHeader));
 
-        // Copy message to buffer and terminate line
         char* msg_buf = new char[1024];
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
@@ -902,63 +855,58 @@ PerProtocol::tel_recv(void* arg)
 void* 
 PerProtocol::RDP_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
 
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->rdp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->rdp_send_pipe.pipe_mutex);
 
-            read(ppp->rdp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->rdp_send_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->rdp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->rdp_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         RDPHeader* h = (RDPHeader *) malloc( sizeof(RDPHeader));
         h->length = msg->msgLen();
         
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(RDPHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 7;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->udp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->udp_send_pipe.pipe_mutex);
 
-            write(ppp->udp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->udp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->udp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->udp_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::RDP_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->rdp_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->rdp_recv_pipe.pipe_mutex);
 
-            read(ppp->rdp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->rdp_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->rdp_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->rdp_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         msg->msgStripHdr(sizeof(RDPHeader));
 
-        // Copy message to buffer and terminate line
         char* msg_buf = new char[1024];
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
@@ -972,63 +920,58 @@ PerProtocol::RDP_recv(void* arg)
 void* 
 PerProtocol::DNS_send(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
 
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->dns_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->dns_send_pipe.pipe_mutex);
 
-            read(ppp->dns_send_pipe.pipe_d[0], (char*)read_pipe, sizeof(pipe_unit));
+            read(perProto->dns_send_pipe.pipe_d[0], (char*)read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->dns_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->dns_send_pipe.pipe_mutex);
 
         
         msg = read_pipe->msg;
 
-        // Create new header
         DNSHeader* h = (DNSHeader *) malloc( sizeof(DNSHeader));
         h->length = msg->msgLen();
 
-        // Add header to message
         msg->msgAddHdr((char*) h, sizeof(DNSHeader));
 
-        // Build new pipe unit
         pipe_unit send_pipe;
         send_pipe.protocol_id = 8;
         send_pipe.msg = msg;
 
-        pthread_mutex_lock(ppp->udp_send_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->udp_send_pipe.pipe_mutex);
 
-            write(ppp->udp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
+            write(perProto->udp_send_pipe.pipe_d[1], (char*) &send_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_unlock(ppp->udp_send_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->udp_send_pipe.pipe_mutex);
     }
 }
 
 void* 
 PerProtocol::DNS_recv(void* arg)
 {
-    PerProtocol* ppp = (PerProtocol*) arg;
+    PerProtocol* perProto = (PerProtocol*) arg;
     
     while(1)
     {
         Message* msg;
         pipe_unit* read_pipe = new pipe_unit;
 
-        pthread_mutex_unlock(ppp->dns_recv_pipe.pipe_mutex);
+        pthread_mutex_unlock(perProto->dns_recv_pipe.pipe_mutex);
 
-            read(ppp->dns_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
+            read(perProto->dns_recv_pipe.pipe_d[0], (char*) read_pipe, sizeof(pipe_unit));
 
-        pthread_mutex_lock(ppp->dns_recv_pipe.pipe_mutex);
+        pthread_mutex_lock(perProto->dns_recv_pipe.pipe_mutex);
 
-        // Strip headers
         msg = read_pipe->msg;
         msg->msgStripHdr(sizeof(DNSHeader));
 
-        // Copy message to buffer and terminate line
         char* msg_buf = new char[1024];
         msg->msgFlat(msg_buf);
         msg_buf[msg->msgLen()] = '\n';
