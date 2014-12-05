@@ -1,0 +1,36 @@
+Christopher Costello
+Austin Longo
+
+Written Dec 5, 2014
+
+Files:
+ - Headers.h contains structs for headers of each protocol
+ - Makefile
+ - PerMessage.h - Implementation for process per message model
+ - PerMessageTest.cc - Self contained test for PerMessage.h
+ - PerProtocol.h - Implementation for process per protocol model
+ - PerProtocol_test.cpp - Self contained test for PerProtocol.h
+ 	-Note: need to uncomment the includes in PerProtocol.h for this to compile
+ - SpeedTest.cc - Tests the speed of sending 400 messages for each model
+ - udpUtils.h - Utility for get udp sockets, sending and recieving messages.
+ - newLibs - Libraries provided for us
+ - ourLibs - Libraries we wrote ourselves
+ - pa4-extra credit.pdf
+ - pa4.pdf
+
+To Compile:
+--------------
+
+make
+
+To run a speed comparison of each model:
+./SpeedTest 
+
+To run a test of PerMessage.h
+./PerMessage
+
+To Clean:
+--------------
+
+clean
+

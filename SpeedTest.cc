@@ -12,10 +12,12 @@
 #define port2 45555
 #define port3 "46666"
 #define port4 "47777"
+#define port5 "48888"
+#define port6 "49999"
 #define SIZE  100
 #define SLEEP 1
 #define SLEEEP 600
-
+#define THRESHOLD 390
 
 void* perMessageFTP(void* arg);
 void* perMessageTelnet(void* arg);
@@ -60,7 +62,7 @@ int main()
 	while(1)
 	{
 		// printf("mCounter: %d\n", mCounter);
-		if(mCounter >= 400)
+		if(mCounter >= THRESHOLD)
 			break;
 	}
 
@@ -92,12 +94,37 @@ int main()
 	while(1)
 	{
 		// printf("rCounter: %d\n", rCounter);
-		if(rCounter >= 400)
+		if(rCounter >= THRESHOLD)
 			break;
 	}
 
 	micros = end.tv_usec - start.tv_usec;
 	cout << "PerMessage Total Time:  " << micros << " microseconds" << endl;
+
+	// PerMessage -> PerProtocol Tests ------------------------------------------
+	mCounter = 0;
+	PerMessage* toProtocol = new PerMessage(atoi(port5), atoi(port6));
+	PerProtocol* fromMessage = new PerProtocol(port6, port5);
+	gettimeofday(&start, NULL);
+
+	pthread_create(&t[0], NULL, perMessageFTP, (void*)toProtocol);
+	pthread_create(&t[1], NULL, perMessageTelnet, (void*)toProtocol);
+	pthread_create(&t[2], NULL, perMessageDNS, (void*)toProtocol);
+	pthread_create(&t[3], NULL, perMessageRDP, (void*)toProtocol);	
+
+	for (int i = 0; i < 4; i++)
+		pthread_join(t[i], NULL);
+
+	while(1)
+	{
+		if(mCounter >= THRESHOLD)
+			break;
+	}
+
+	gettimeofday(&end, NULL);
+
+	micros = end.tv_usec - start.tv_usec;
+	cout << "PerMessage -> PerProtocol Total Time:  " << micros << " microseconds" << endl;
 
 }
 
