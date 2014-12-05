@@ -2,6 +2,8 @@
 #include <sys/time.h>
 #include "PerMessage.h"
 #include "PerProtocol.h"
+
+
 #define USAGE "./SpeedTest"
 #define SEND "send"
 #define LISTEN "listen"
@@ -26,8 +28,12 @@ void* perProtocolRDP(void* arg);
 
 char* text = new char[SIZE];
 
+extern int mCounter;
+
 int main() 
 {
+	mCounter = 0;
+
 	for (int i = 0; i < SIZE; ++i) text[i] = 't';
 	
 	// PerMessage Tests -------------------------------------------------------
@@ -67,6 +73,13 @@ int main()
 
 	for (int i = 0; i < 4; i++)
 		pthread_join(t[i], NULL);
+
+	while(1)
+	{
+		printf("mCounter: %d\n", mCounter);
+		if(mCounter >= 400)
+			break;
+	}
 
 	gettimeofday(&end, NULL);
 

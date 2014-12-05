@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+int mCounter;
+
 /*#include "./ourLibs/Message.h"
 #include "./newLibs/cj/threadpool.h"
 #include "Headers.h"
@@ -21,6 +23,7 @@ typedef void (*function_pointer)(void*);
 class PerProtocol
 {
 public:
+
     // Struct for sending to pipes
     struct pipe_unit {
         int protocol_id;
@@ -102,6 +105,7 @@ private:
 
 PerProtocol::PerProtocol(char in[], char out[])
 {
+    int mCounter = 0;
 
     // Start communications on sockets first
     start_comm(in, out);
@@ -497,7 +501,6 @@ PerProtocol::IP_send(void* arg)
 
         IPHeader* h = (IPHeader *) malloc( sizeof(IPHeader));
         h->hlp = read_pipe->protocol_id;
-        usleep(400);
         h->length = msg->msgLen();
         
         msg->msgAddHdr((char*) h, sizeof(IPHeader));
@@ -783,6 +786,7 @@ PerProtocol::FTP_recv(void* arg)
         msg_buf[msg->msgLen()] = '\n';
 
         //cout << "FTP Message Received: " << msg_buf;
+        mCounter++;
 
         delete msg_buf;
     }
@@ -848,6 +852,7 @@ PerProtocol::tel_recv(void* arg)
         msg_buf[msg->msgLen()] = '\n';
 
         //cout << "Telnet Message Received: " << msg_buf;
+        mCounter++;
 
         delete msg_buf;
     }
@@ -913,6 +918,7 @@ PerProtocol::RDP_recv(void* arg)
         msg_buf[msg->msgLen()] = '\n';
 
         //cout << "RDP Message Received: " << msg_buf;
+        mCounter++;
 
         delete msg_buf;
     }
@@ -978,6 +984,7 @@ PerProtocol::DNS_recv(void* arg)
         msg_buf[msg->msgLen()] = '\n';
 
         //cout << "DNS Message Received: " << msg_buf;
+        mCounter++;
 
         delete msg_buf;
     }
