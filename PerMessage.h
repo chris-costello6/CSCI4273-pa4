@@ -9,8 +9,8 @@
 #include <unistd.h>
 
 #include "ourLibs/Message.h"
-#include "ourLibs/ThreadPool.h"
-// #include "newLibs/threadpool.cpp"
+// #include "ourLibs/ThreadPool_new.h"
+#include "newLibs/threadpool.cpp"
 #include "Headers.h"
 #include "udpUtils.h"
 
@@ -66,7 +66,7 @@ PerMessage::PerMessage(int sourcePort, int destPort)
 	inUdpPort = sourcePort;
 	destUdpPort = destPort;
 	mySock = udpSocket(inUdpPort);
-	cout << "My Port: " << inUdpPort << " Dest Port: " << destUdpPort << endl;
+	// cout << "My Port: " << inUdpPort << " Dest Port: " << destUdpPort << endl;
 	
 	pthread_t t;
 	int fail = pthread_create(&t, NULL, listenOnSocket, (void*)this);
@@ -76,7 +76,7 @@ void*
 PerMessage::listenOnSocket(void* arg)
 {
 	PerMessage* pm = (PerMessage*) arg;
-	cout << "Listening on port " << pm->inUdpPort << endl;
+	// cout << "Listening on port " << pm->inUdpPort << endl;
 	while(true) {
 		char* buffer = new char[BUFSIZE]; // Move this outside the loop and you're fucked.
 		memset(buffer, 0, BUFSIZE);	

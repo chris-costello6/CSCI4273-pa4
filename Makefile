@@ -1,5 +1,5 @@
 CC = g++
-CCFLAGS = -std=gnu++11 -pthread -g
+CCFLAGS = -std=gnu++11 -O3 -pthread -g
 
 all: perMessageMake speedTestMake
 
