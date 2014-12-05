@@ -497,6 +497,7 @@ PerProtocol::IP_send(void* arg)
 
         IPHeader* h = (IPHeader *) malloc( sizeof(IPHeader));
         h->hlp = read_pipe->protocol_id;
+        usleep(400);
         h->length = msg->msgLen();
         
         msg->msgAddHdr((char*) h, sizeof(IPHeader));
