@@ -14,6 +14,8 @@
 #include "Headers.h"
 #include "udpUtils.h"
 
+int rCounter;
+
 #define THREAD_COUNT 25
 
 using namespace std;
@@ -76,7 +78,7 @@ void*
 PerMessage::listenOnSocket(void* arg)
 {
 	PerMessage* pm = (PerMessage*) arg;
-	// cout << "Listening on port " << pm->inUdpPort << endl;
+	// coux	t << "Listening on port " << pm->inUdpPort << endl;
 	while(true) {
 		char* buffer = new char[BUFSIZE]; // Move this outside the loop and you're fucked.
 		memset(buffer, 0, BUFSIZE);	
@@ -254,6 +256,7 @@ PerMessage::rdpRecv(Message* mesg)
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
 	// cout << "RDP MESSAGE: " << buff << endl;
+	rCounter++;
 	delete buff;
 }
 
@@ -264,6 +267,7 @@ PerMessage::dnsRecv(Message* mesg)
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
 	// cout << "DNS MESSAGE: " << buff << endl;
+	rCounter++;
 	delete buff;
 }
 
@@ -274,6 +278,7 @@ PerMessage::ftpRecv(Message* mesg)
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
 	// cout << "FTP MESSAGE: " << buff << endl;
+	rCounter++;
 	delete buff;
 }
 
@@ -284,5 +289,6 @@ PerMessage::telnetRecv(Message* mesg)
 	char* buff = new char[1024];
 	mesg->msgFlat(buff);
 	// cout << "TELNET MESSAGE: " << buff << endl;
+	rCounter++;
 	delete buff;
 }

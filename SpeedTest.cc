@@ -30,6 +30,7 @@ void* perProtocolRDP(void* arg);
 char* text = new char[SIZE];
 
 extern int mCounter;
+extern int rCounter;
 
 int main() 
 {
@@ -41,9 +42,6 @@ int main()
 	timeval start, end;
 	pthread_t t[4];
 	int micros = 0;
-
-	
-
 
 	// PerProtocol Tests ------------------------------------------------------
 	PerProtocol* perProtocolListen = new PerProtocol(port3, port4);
@@ -61,7 +59,7 @@ int main()
 
 	while(1)
 	{
-		printf("mCounter: %d\n", mCounter);
+		// printf("mCounter: %d\n", mCounter);
 		if(mCounter >= 400)
 			break;
 	}
@@ -91,8 +89,16 @@ int main()
 
 	gettimeofday(&end, NULL);
 
+	while(1)
+	{
+		// printf("rCounter: %d\n", rCounter);
+		if(rCounter >= 400)
+			break;
+	}
+
 	micros = end.tv_usec - start.tv_usec;
-	cout << "PerMessage Total Time: " << micros << " microseconds" << endl;
+	cout << "PerMessage Total Time:  " << micros << " microseconds" << endl;
+
 }
 
 void* 
