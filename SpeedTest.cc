@@ -11,7 +11,8 @@
 #define port3 "46666"
 #define port4 "47777"
 #define SIZE  100
-#define SLEEP 12
+#define SLEEP 1
+#define SLEEEP 600
 
 
 void* perMessageFTP(void* arg);
@@ -28,30 +29,11 @@ char* text = new char[SIZE];
 
 int main() 
 {
+	timeval start, end;
+	pthread_t t[4];
+	int micros = 0;
 	for (int i = 0; i < SIZE; ++i) text[i] = 't';
 	
-	// PerMessage Tests -------------------------------------------------------
-	timeval start, end;
-	
-	pthread_t t[4];
-	
-	PerMessage* perMessageListen = new PerMessage(port1, port2);
-	PerMessage* perMessageSend = new PerMessage(port2, port1);
-	
-	gettimeofday(&start, NULL);
-	
-	pthread_create(&t[0], NULL, perMessageFTP, (void*)perMessageSend);
-	pthread_create(&t[1], NULL, perMessageTelnet, (void*)perMessageSend);
-	pthread_create(&t[2], NULL, perMessageDNS, (void*)perMessageSend);
-	pthread_create(&t[3], NULL, perMessageRDP, (void*)perMessageSend);	
-
-	for (int i = 0; i < 4; i++)
-		pthread_join(t[i], NULL);
-
-	gettimeofday(&end, NULL);
-
-	int micros = end.tv_usec - start.tv_usec;
-	cout << "PerMessage Total Time: " << micros << " microseconds" << endl;
 
 
 	// PerProtocol Tests ------------------------------------------------------
@@ -72,6 +54,29 @@ int main()
 
 	micros = end.tv_usec - start.tv_usec;
 	cout << "PerProtocol Total Time: " << micros << " microseconds" << endl;
+
+
+	// PerMessage Tests -------------------------------------------------------
+	
+	
+	
+	PerMessage* perMessageListen = new PerMessage(port1, port2);
+	PerMessage* perMessageSend = new PerMessage(port2, port1);
+	
+	gettimeofday(&start, NULL);
+	
+	pthread_create(&t[0], NULL, perMessageFTP, (void*)perMessageSend);
+	pthread_create(&t[1], NULL, perMessageTelnet, (void*)perMessageSend);
+	pthread_create(&t[2], NULL, perMessageDNS, (void*)perMessageSend);
+	pthread_create(&t[3], NULL, perMessageRDP, (void*)perMessageSend);	
+
+	for (int i = 0; i < 4; i++)
+		pthread_join(t[i], NULL);
+
+	gettimeofday(&end, NULL);
+
+	micros = end.tv_usec - start.tv_usec;
+	cout << "PerMessage Total Time: " << micros << " microseconds" << endl;
 }
 
 void* 
@@ -143,7 +148,7 @@ perProtocolFTP(void* arg)
 
         pthread_mutex_unlock(perProto->ftp_send_pipe.pipe_mutex);
 
-        usleep(SLEEP);
+        usleep(SLEEEP);
     }
 }
 
@@ -164,7 +169,7 @@ perProtocolTelnet(void* arg)
 
         pthread_mutex_unlock(perProto->tel_send_pipe.pipe_mutex);
     
-        usleep(SLEEP);
+        usleep(SLEEEP);
     }
 }
 
@@ -185,7 +190,7 @@ perProtocolDNS(void* arg)
 
         pthread_mutex_unlock(perProto->dns_send_pipe.pipe_mutex);
 
-        usleep(SLEEP);
+        usleep(SLEEEP);
     }
 }
 
@@ -206,6 +211,6 @@ perProtocolRDP(void* arg)
 
         pthread_mutex_unlock(perProto->rdp_send_pipe.pipe_mutex);
 
-        usleep(SLEEP);
+        usleep(SLEEEP);
     }
 }
